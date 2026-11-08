@@ -10,7 +10,7 @@
 body {
   margin: 0;
   padding: 20px;
-  background: #000;
+  background: #000000;
   color: white;
   font-family: sans-serif;
   text-align: center;
@@ -39,7 +39,7 @@ h1 {
   font-size: 50px;
   background: none;
   border: none;
-  transition: left .3s, top .3s;
+  transition: left 0.3s, top 0.3s;
   touch-action: manipulation;
 }
 
@@ -52,6 +52,16 @@ h1 {
   background: #f81557;
   color: white;
   cursor: pointer;
+}
+
+#reproductor {
+  margin-top: 15px;
+}
+
+#reproductor iframe {
+  max-width: 100%;
+  border: none;
+  border-radius: 12px;
 }
 </style>
 </head>
@@ -71,26 +81,29 @@ Récord: <b id="record">0</b>
 </div>
 
 <button id="empezar">¡Jugar!</button>
+
 <p id="mensaje">Toca el 🐼 antes de que se escape</p>
 
-<!-- Canción de YouTube -->
-<div id="reproductor" style="position:absolute;width:1px;height:1px;overflow:hidden;">
+<!-- REPRODUCTOR DE YOUTUBE -->
+<div id="reproductor">
   <iframe
     id="youtube"
-    width="1"
-    height="1"
+    width="300"
+    height="170"
     src="about:blank"
     title="Música de fondo"
-    allow="autoplay; encrypted-media"
-    referrerpolicy="strict-origin-when-cross-origin">
+    allow="autoplay; encrypted-media; picture-in-picture"
+    allowfullscreen>
   </iframe>
 </div>
 
 <script>
+
 let puntos = 0;
 let tiempo = 20;
 let jugando = false;
 let reloj;
+
 let record = localStorage.getItem("record") || 0;
 let musicaIniciada = false;
 
@@ -100,7 +113,8 @@ const youtube = document.getElementById("youtube");
 
 document.getElementById("record").textContent = record;
 
-// Sonido original del panda
+// SONIDO ORIGINAL DEL PANDA
+
 let audio;
 
 function iniciarAudio() {
@@ -114,14 +128,17 @@ function iniciarAudio() {
 }
 
 function sonidoTiempo() {
+
   iniciarAudio();
 
   const ahora = audio.currentTime;
 
+  // Golpe grave
   const osc = audio.createOscillator();
   const volumen = audio.createGain();
 
   osc.type = "sawtooth";
+
   osc.frequency.setValueAtTime(130, ahora);
   osc.frequency.exponentialRampToValueAtTime(45, ahora + 0.25);
 
@@ -134,10 +151,12 @@ function sonidoTiempo() {
   osc.start(ahora);
   osc.stop(ahora + 0.3);
 
+  // Tono agudo
   const tono = audio.createOscillator();
   const volumen2 = audio.createGain();
 
   tono.type = "triangle";
+
   tono.frequency.setValueAtTime(700, ahora);
   tono.frequency.exponentialRampToValueAtTime(250, ahora + 0.2);
 
@@ -151,42 +170,62 @@ function sonidoTiempo() {
   tono.stop(ahora + 0.2);
 }
 
+// MOVER PANDA
+
 function mover() {
+
   const maxX = Math.max(0, zona.clientWidth - bicho.offsetWidth);
   const maxY = Math.max(0, zona.clientHeight - bicho.offsetHeight);
 
-  bicho.style.left = Math.random() * maxX + "px";
-  bicho.style.top = Math.random() * maxY + "px";
+  let x = Math.random() * maxX;
+  let y = Math.random() * maxY;
+
+  bicho.style.left = x + "px";
+  bicho.style.top = y + "px";
 }
 
 mover();
 
+// ATRAPAR PANDA
+
 bicho.addEventListener("click", function() {
+
   if (jugando) {
+
     puntos++;
+
     document.getElementById("puntos").textContent = puntos;
+
     mover();
   }
+
 });
 
+// MÚSICA DE YOUTUBE
+
 function iniciarMusica() {
+
   if (musicaIniciada) return;
 
   musicaIniciada = true;
 
-  // El video empieza a reproducirse cuando quedan 15 segundos.
   youtube.src =
-    "https://www.youtube.com/embed/yXkV0h3eM20" +
-    "?autoplay=1&start=0&controls=0&loop=1&playlist=yXkV0h3eM20";
+    "https://www.youtube.com/embed/yXkV0h3eM20?autoplay=1&start=0&controls=1";
 }
 
 function detenerMusica() {
+
   musicaIniciada = false;
+
   youtube.src = "about:blank";
 }
 
+// EMPEZAR JUEGO
+
 function empezar() {
+
   iniciarAudio();
+
   detenerMusica();
 
   puntos = 0;
@@ -198,44 +237,67 @@ function empezar() {
   document.getElementById("mensaje").textContent = "¡Atrápalo!";
 
   mover();
+
   clearInterval(reloj);
 
   reloj = setInterval(function() {
+
     tiempo--;
 
     document.getElementById("tiempo").textContent = tiempo;
 
-    // Mantiene el sonido original cada segundo.
+    // SONIDO CADA SEGUNDO
     sonidoTiempo();
+
     mover();
 
-    // Inicia la canción cuando quedan 15 segundos.
+    // CANCIÓN AL LLEGAR A 15 SEGUNDOS
     if (tiempo === 15) {
+
       iniciarMusica();
+
+      document.getElementById("mensaje").textContent =
+        "🔥 ¡LA MÚSICA HA COMENZADO! ¡ATRÁPALO!";
+
     }
 
     if (tiempo <= 0) {
+
       terminar();
+
     }
+
   }, 1000);
+
 }
 
+// TERMINAR JUEGO
+
 function terminar() {
+
   jugando = false;
+
   clearInterval(reloj);
+
   detenerMusica();
 
   if (puntos > record) {
+
     record = puntos;
+
     localStorage.setItem("record", record);
+
     document.getElementById("record").textContent = record;
+
   }
 
   document.getElementById("mensaje").textContent =
     "¡Se acabó el tiempo! Hiciste " + puntos + " puntos";
+
 }
 
 document.getElementById("empezar").addEventListener("click", empezar);
+
 </script>
 
 </body>
