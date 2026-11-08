@@ -1,0 +1,540 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atrapa al po</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 15px;
+    background: black;
+    color: white;
+    font-family: Arial, sans-serif;
+    text-align: center;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+h1 {
+    color: #f81557;
+    font-size: clamp(28px, 7vw, 45px);
+    margin: 12px 0;
+}
+
+#panel {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 15px auto;
+    font-size: 17px;
+}
+
+.dato {
+    border: 2px solid #f81557;
+    border-radius: 10px;
+    padding: 10px 14px;
+}
+
+#zona {
+    width: 100%;
+    max-width: 650px;
+    height: min(55vh, 420px);
+    min-height: 260px;
+    margin: 15px auto;
+    border: 4px solid #f81557;
+    border-radius: 15px;
+    position: relative;
+    overflow: hidden;
+    background: #080808;
+    touch-action: manipulation;
+}
+
+#bicho {
+    position: absolute;
+    font-size: clamp(42px, 12vw, 65px);
+    cursor: pointer;
+    left: 40%;
+    top: 40%;
+    transition: left 0.15s, top 0.15s;
+    touch-action: manipulation;
+}
+
+button {
+    background: #f81557;
+    color: white;
+    border: none;
+    padding: 13px 24px;
+    border-radius: 10px;
+    font-size: 17px;
+    font-weight: bold;
+    cursor: pointer;
+    margin: 8px;
+}
+
+button:active {
+    transform: scale(0.96);
+}
+
+#tabla {
+    width: 100%;
+    max-width: 450px;
+    margin: 20px auto;
+    border-collapse: collapse;
+}
+
+#tabla th, #tabla td {
+    border: 1px solid #f81557;
+    padding: 9px;
+}
+
+#tabla th {
+    color: #f81557;
+}
+
+#modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.92);
+    z-index: 10;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+#contenidoModal {
+    border: 3px solid #f81557;
+    border-radius: 15px;
+    padding: 25px;
+    background: #111;
+    width: 100%;
+    max-width: 350px;
+}
+
+#nombre {
+    width: 100%;
+    padding: 12px;
+    font-size: 24px;
+    text-align: center;
+    text-transform: uppercase;
+    background: black;
+    color: white;
+    border: 2px solid #f81557;
+    border-radius: 8px;
+    margin: 12px 0;
+}
+
+#mensaje {
+    color: #f81557;
+    min-height: 22px;
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 8px;
+    }
+
+    #panel {
+        gap: 7px;
+        font-size: 14px;
+    }
+
+    .dato {
+        padding: 8px 10px;
+    }
+
+    #zona {
+        height: 48vh;
+        min-height: 250px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<h1>🐼 ATRAPA AL PO 🐼</h1>
+
+<div id="panel">
+    <div class="dato">Puntos: <span id="puntos">0</span></div>
+    <div class="dato">Tiempo: <span id="tiempo">20</span>s</div>
+    <div class="dato">Récord: <span id="record">0</span></div>
+    <div class="dato">Velocidad: <span id="velocidad">x1.00</span></div>
+</div>
+
+<div id="zona">
+    <div id="bicho">🐼</div>
+</div>
+
+<button id="iniciar">¡EMPEZAR!</button>
+
+<h2>🏆 Tabla de campeones</h2>
+
+<table id="tabla">
+    <thead>
+        <tr>
+            <th>Posición</th>
+            <th>Jugador</th>
+            <th>Puntos</th>
+        </tr>
+    </thead>
+    <tbody id="campeones"></tbody>
+</table>
+
+<div id="modal">
+    <div id="contenidoModal">
+        <h2 style="color:#f81557">🏆 ¡NUEVO RÉCORD!</h2>
+        <p>¡Escribe tu nombre de 3 letras!</p>
+        <input id="nombre" maxlength="3" minlength="3"
+               placeholder="ABC" autocomplete="off">
+        <p id="mensaje"></p>
+        <button id="guardar">GUARDAR</button>
+    </div>
+</div>
+
+<script>
+const zona = document.getElementById("zona");
+const bicho = document.getElementById("bicho");
+const iniciar = document.getElementById("iniciar");
+const modal = document.getElementById("modal");
+const nombre = document.getElementById("nombre");
+
+let puntos = 0;
+let tiempo = 20;
+let record = Number(localStorage.getItem("record")) || 0;
+let velocidad = 1;
+let jugando = false;
+let reloj;
+let movimiento;
+let audioContext;
+let musicaActiva = false;
+let osciladores = [];
+let pendienteRecord = 0;
+
+document.getElementById("record").textContent = record;
+
+// Sonido original de suspenso generado por el propio juego
+function activarAudio() {
+    if (!audioContext) {
+        audioContext = new (window.AudioContext ||
+                            window.webkitAudioContext)();
+    }
+
+    if (audioContext.state === "suspended") {
+        audioContext.resume();
+    }
+}
+
+// Sonido corto al disminuir el contador
+function sonidoCuenta() {
+    if (!audioContext) return;
+
+    const ahora = audioContext.currentTime;
+
+    const bajo = audioContext.createOscillator();
+    const volumenBajo = audioContext.createGain();
+
+    bajo.type = "sawtooth";
+    bajo.frequency.setValueAtTime(90, ahora);
+    bajo.frequency.exponentialRampToValueAtTime(45, ahora + 0.18);
+
+    volumenBajo.gain.setValueAtTime(0.12, ahora);
+    volumenBajo.gain.exponentialRampToValueAtTime(0.001, ahora + 0.2);
+
+    bajo.connect(volumenBajo);
+    volumenBajo.connect(audioContext.destination);
+
+    bajo.start(ahora);
+    bajo.stop(ahora + 0.21);
+
+    const agudo = audioContext.createOscillator();
+    const volumenAgudo = audioContext.createGain();
+
+    agudo.type = "triangle";
+    agudo.frequency.setValueAtTime(600, ahora);
+    agudo.frequency.exponentialRampToValueAtTime(300, ahora + 0.12);
+
+    volumenAgudo.gain.setValueAtTime(0.06, ahora);
+    volumenAgudo.gain.exponentialRampToValueAtTime(0.001, ahora + 0.15);
+
+    agudo.connect(volumenAgudo);
+    volumenAgudo.connect(audioContext.destination);
+
+    agudo.start(ahora);
+    agudo.stop(ahora + 0.16);
+}
+
+// Música original: ambiente misterioso sin letra
+function iniciarSuspenso() {
+    if (musicaActiva || !audioContext) return;
+
+    musicaActiva = true;
+
+    const ahora = audioContext.currentTime;
+
+    // Tonos graves ambientales
+    const notas = [55, 65.41, 73.42, 65.41];
+
+    notas.forEach((nota, i) => {
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+
+        osc.type = "sine";
+        osc.frequency.value = nota;
+
+        gain.gain.value = 0.0001;
+
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+
+        osc.start();
+
+        osciladores.push({ osc, gain });
+    });
+
+    // Sonido atmosférico que sube y baja lentamente
+    const pulso = audioContext.createOscillator();
+    const volumenPulso = audioContext.createGain();
+
+    pulso.type = "triangle";
+    pulso.frequency.value = 82;
+
+    volumenPulso.gain.setValueAtTime(0.025, ahora);
+    volumenPulso.gain.setValueAtTime(0.008, ahora + 1.5);
+    volumenPulso.gain.setValueAtTime(0.025, ahora + 3);
+
+    pulso.connect(volumenPulso);
+    volumenPulso.connect(audioContext.destination);
+    pulso.start();
+
+    osciladores.push({
+        osc: pulso,
+        gain: volumenPulso
+    });
+
+    // Secuencia de notas misteriosas
+    const secuencia = [110, 130.81, 98, 146.83, 110, 82.41];
+    let indice = 0;
+
+    function siguienteNota() {
+        if (!musicaActiva || !audioContext) return;
+
+        const t = audioContext.currentTime;
+        const nota = audioContext.createOscillator();
+        const volumen = audioContext.createGain();
+
+        nota.type = "sine";
+        nota.frequency.setValueAtTime(secuencia[indice], t);
+
+        volumen.gain.setValueAtTime(0.0001, t);
+        volumen.gain.linearRampToValueAtTime(0.045, t + 0.5);
+        volumen.gain.linearRampToValueAtTime(0.0001, t + 2.3);
+
+        nota.connect(volumen);
+        volumen.connect(audioContext.destination);
+
+        nota.start(t);
+        nota.stop(t + 2.4);
+
+        indice = (indice + 1) % secuencia.length;
+
+        setTimeout(siguienteNota, 1800);
+    }
+
+    siguienteNota();
+}
+
+function detenerSuspenso() {
+    musicaActiva = false;
+
+    osciladores.forEach(item => {
+        try {
+            item.osc.stop();
+        } catch(e) {}
+
+        try {
+            item.osc.disconnect();
+            item.gain.disconnect();
+        } catch(e) {}
+    });
+
+    osciladores = [];
+}
+
+function mover() {
+    const maxX = Math.max(0, zona.clientWidth - bicho.offsetWidth);
+    const maxY = Math.max(0, zona.clientHeight - bicho.offsetHeight);
+
+    bicho.style.left = Math.random() * maxX + "px";
+    bicho.style.top = Math.random() * maxY + "px";
+}
+
+function actualizarVelocidad() {
+    clearInterval(movimiento);
+
+    if (jugando) {
+        movimiento = setInterval(mover, 1000 / velocidad);
+    }
+
+    document.getElementById("velocidad").textContent =
+        "x" + velocidad.toFixed(2);
+}
+
+function actualizarPantalla() {
+    document.getElementById("puntos").textContent = puntos;
+    document.getElementById("tiempo").textContent = tiempo;
+    document.getElementById("record").textContent = record;
+}
+
+function iniciarJuego() {
+    clearInterval(reloj);
+    clearInterval(movimiento);
+    detenerSuspenso();
+
+    activarAudio();
+
+    puntos = 0;
+    tiempo = 20;
+    velocidad = 1;
+    jugando = true;
+
+    actualizarPantalla();
+    actualizarVelocidad();
+    mover();
+
+    iniciar.textContent = "JUGANDO...";
+
+    reloj = setInterval(() => {
+        tiempo--;
+        sonidoCuenta();
+
+        if (tiempo <= 15) {
+            iniciarSuspenso();
+        }
+
+        actualizarPantalla();
+
+        if (tiempo <= 0) {
+            terminarJuego();
+        }
+    }, 1000);
+}
+
+function atrapar() {
+    if (!jugando) return;
+
+    puntos++;
+
+    if (puntos % 15 === 0) {
+        tiempo += 5;
+        velocidad *= 1.5;
+        actualizarVelocidad();
+    }
+
+    actualizarPantalla();
+    mover();
+}
+
+function terminarJuego() {
+    jugando = false;
+
+    clearInterval(reloj);
+    clearInterval(movimiento);
+
+    detenerSuspenso();
+
+    iniciar.textContent = "VOLVER A JUGAR";
+
+    if (puntos > record) {
+        pendienteRecord = puntos;
+        modal.style.display = "flex";
+        nombre.value = "";
+        document.getElementById("mensaje").textContent = "";
+        nombre.focus();
+    } else {
+        alert("¡Juego terminado! Conseguido: " + puntos + " puntos.");
+    }
+}
+
+function cargarCampeones() {
+    const lista = JSON.parse(localStorage.getItem("campeones") || "[]");
+
+    lista.sort((a, b) => b.puntos - a.puntos);
+
+    const cuerpo = document.getElementById("campeones");
+    cuerpo.innerHTML = "";
+
+    lista.slice(0, 10).forEach((jugador, i) => {
+        const fila = document.createElement("tr");
+
+        [i + 1, jugador.nombre, jugador.puntos].forEach(valor => {
+            const celda = document.createElement("td");
+            celda.textContent = valor;
+            fila.appendChild(celda);
+        });
+
+        cuerpo.appendChild(fila);
+    });
+}
+
+function guardarCampeon() {
+    const letras = nombre.value.trim().toUpperCase();
+
+    if (!/^[A-Z]{3}$/.test(letras)) {
+        document.getElementById("mensaje").textContent =
+            "¡Debes escribir exactamente 3 letras!";
+        return;
+    }
+
+    record = pendienteRecord;
+    localStorage.setItem("record", record);
+
+    const lista = JSON.parse(localStorage.getItem("campeones") || "[]");
+
+    lista.push({
+        nombre: letras,
+        puntos: pendienteRecord
+    });
+
+    lista.sort((a, b) => b.puntos - a.puntos);
+
+    localStorage.setItem("campeones", JSON.stringify(lista.slice(0, 10)));
+
+    actualizarPantalla();
+    cargarCampeones();
+
+    modal.style.display = "none";
+
+    alert("¡Felicidades! Tu récord ha sido guardado.");
+}
+
+bicho.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    atrapar();
+});
+
+iniciar.addEventListener("click", iniciarJuego);
+document.getElementById("guardar").addEventListener("click", guardarCampeon);
+
+nombre.addEventListener("input", () => {
+    nombre.value = nombre.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3);
+});
+
+nombre.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") guardarCampeon();
+});
+
+cargarCampeones();
+actualizarPantalla();
+</script>
+
+</body>
+</html>
