@@ -41,6 +41,7 @@ h1 {
   border: none;
   transition: left 0.3s, top 0.3s;
   touch-action: manipulation;
+  cursor: pointer;
 }
 
 #empezar {
@@ -54,14 +55,8 @@ h1 {
   cursor: pointer;
 }
 
-#reproductor {
-  margin-top: 15px;
-}
-
-#reproductor iframe {
-  max-width: 100%;
-  border: none;
-  border-radius: 12px;
+#mensaje {
+  font-size: 16px;
 }
 </style>
 </head>
@@ -84,18 +79,11 @@ Récord: <b id="record">0</b>
 
 <p id="mensaje">Toca el 🐼 antes de que se escape</p>
 
-<!-- REPRODUCTOR DE YOUTUBE -->
-<div id="reproductor">
-  <iframe
-    id="youtube"
-    width="300"
-    height="170"
-    src="about:blank"
-    title="Música de fondo"
-    allow="autoplay; encrypted-media; picture-in-picture"
-    allowfullscreen>
-  </iframe>
-</div>
+<!-- CANCIÓN DE FONDO -->
+<audio id="musica" preload="auto">
+  <source src="Canción misión imposible - el apocalíptico 0.mp3" type="audio/mpeg">
+  Tu navegador no admite audio.
+</audio>
 
 <script>
 
@@ -105,19 +93,20 @@ let jugando = false;
 let reloj;
 
 let record = localStorage.getItem("record") || 0;
-let musicaIniciada = false;
 
 const bicho = document.getElementById("bicho");
 const zona = document.getElementById("zona");
-const youtube = document.getElementById("youtube");
+const musica = document.getElementById("musica");
 
 document.getElementById("record").textContent = record;
+
 
 // SONIDO ORIGINAL DEL PANDA
 
 let audio;
 
 function iniciarAudio() {
+
   if (!audio) {
     audio = new (window.AudioContext || window.webkitAudioContext)();
   }
@@ -125,6 +114,7 @@ function iniciarAudio() {
   if (audio.state === "suspended") {
     audio.resume();
   }
+
 }
 
 function sonidoTiempo() {
@@ -133,7 +123,8 @@ function sonidoTiempo() {
 
   const ahora = audio.currentTime;
 
-  // Golpe grave
+  // GOLPE GRAVE
+
   const osc = audio.createOscillator();
   const volumen = audio.createGain();
 
@@ -151,7 +142,8 @@ function sonidoTiempo() {
   osc.start(ahora);
   osc.stop(ahora + 0.3);
 
-  // Tono agudo
+  // TONO AGUDO
+
   const tono = audio.createOscillator();
   const volumen2 = audio.createGain();
 
@@ -168,7 +160,9 @@ function sonidoTiempo() {
 
   tono.start(ahora);
   tono.stop(ahora + 0.2);
+
 }
+
 
 // MOVER PANDA
 
@@ -182,9 +176,11 @@ function mover() {
 
   bicho.style.left = x + "px";
   bicho.style.top = y + "px";
+
 }
 
 mover();
+
 
 // ATRAPAR PANDA
 
@@ -197,28 +193,40 @@ bicho.addEventListener("click", function() {
     document.getElementById("puntos").textContent = puntos;
 
     mover();
+
   }
 
 });
 
-// MÚSICA DE YOUTUBE
+
+// INICIAR CANCIÓN MP3
 
 function iniciarMusica() {
 
-  if (musicaIniciada) return;
+  musica.currentTime = 0;
+  musica.volume = 1;
 
-  musicaIniciada = true;
+  musica.play().catch(function(error) {
 
-  youtube.src =
-    "https://www.youtube.com/embed/yXkV0h3eM20?autoplay=1&start=0&controls=1";
+    document.getElementById("mensaje").textContent =
+      "No se pudo cargar la música. Revisa que el MP3 esté en la misma carpeta.";
+
+    console.error("Error de audio:", error);
+
+  });
+
 }
+
+
+// DETENER CANCIÓN
 
 function detenerMusica() {
 
-  musicaIniciada = false;
+  musica.pause();
+  musica.currentTime = 0;
 
-  youtube.src = "about:blank";
 }
+
 
 // EMPEZAR JUEGO
 
@@ -234,6 +242,7 @@ function empezar() {
 
   document.getElementById("puntos").textContent = puntos;
   document.getElementById("tiempo").textContent = tiempo;
+
   document.getElementById("mensaje").textContent = "¡Atrápalo!";
 
   mover();
@@ -246,20 +255,24 @@ function empezar() {
 
     document.getElementById("tiempo").textContent = tiempo;
 
-    // SONIDO CADA SEGUNDO
+    // SONIDO DEL PANDA CADA SEGUNDO
+
     sonidoTiempo();
 
     mover();
 
     // CANCIÓN AL LLEGAR A 15 SEGUNDOS
+
     if (tiempo === 15) {
 
       iniciarMusica();
 
       document.getElementById("mensaje").textContent =
-        "🔥 ¡LA MÚSICA HA COMENZADO! ¡ATRÁPALO!";
+        "🔥 ¡MISIÓN IMPOSIBLE! ¡ATRÁPALO!";
 
     }
+
+    // TERMINAR CUANDO LLEGUE A CERO
 
     if (tiempo <= 0) {
 
@@ -270,6 +283,7 @@ function empezar() {
   }, 1000);
 
 }
+
 
 // TERMINAR JUEGO
 
@@ -295,6 +309,9 @@ function terminar() {
     "¡Se acabó el tiempo! Hiciste " + puntos + " puntos";
 
 }
+
+
+// BOTÓN JUGAR
 
 document.getElementById("empezar").addEventListener("click", empezar);
 
