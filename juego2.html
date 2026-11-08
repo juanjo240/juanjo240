@@ -39,7 +39,7 @@ h1 {
   font-size: 50px;
   background: none;
   border: none;
-  transition: left 0.3s, top 0.3s;
+  transition: left 0.15s, top 0.15s;
   touch-action: manipulation;
   cursor: pointer;
 }
@@ -58,6 +58,11 @@ h1 {
 #mensaje {
   font-size: 16px;
 }
+
+#nivel {
+  color: #f81557;
+  font-weight: bold;
+}
 </style>
 </head>
 
@@ -71,6 +76,8 @@ Tiempo: <b id="tiempo">20</b>
 Récord: <b id="record">0</b>
 </p>
 
+<p id="nivel">Velocidad: x1.00</p>
+
 <div id="zona">
   <button id="bicho">🐼</button>
 </div>
@@ -79,20 +86,26 @@ Récord: <b id="record">0</b>
 
 <p id="mensaje">Toca el 🐼 antes de que se escape</p>
 
-<!-- CANCIÓN DE FONDO -->
+<!-- CANCIÓN MP3 -->
 <audio id="musica" preload="auto">
   <source src="Canción misión imposible - el apocalíptico 0.mp3" type="audio/mpeg">
-  Tu navegador no admite audio.
 </audio>
 
 <script>
+
+// VARIABLES PRINCIPALES
 
 let puntos = 0;
 let tiempo = 20;
 let jugando = false;
 let reloj;
+let movimiento;
 
 let record = localStorage.getItem("record") || 0;
+
+let velocidad = 1;
+let siguienteNivel = 15;
+let tiempoMusicaIniciada = false;
 
 const bicho = document.getElementById("bicho");
 const zona = document.getElementById("zona");
@@ -171,15 +184,32 @@ function mover() {
   const maxX = Math.max(0, zona.clientWidth - bicho.offsetWidth);
   const maxY = Math.max(0, zona.clientHeight - bicho.offsetHeight);
 
-  let x = Math.random() * maxX;
-  let y = Math.random() * maxY;
-
-  bicho.style.left = x + "px";
-  bicho.style.top = y + "px";
+  bicho.style.left = Math.random() * maxX + "px";
+  bicho.style.top = Math.random() * maxY + "px";
 
 }
 
-mover();
+
+// ACTUALIZAR VELOCIDAD
+
+function actualizarVelocidad() {
+
+  clearInterval(movimiento);
+
+  let intervalo = 1000 / velocidad;
+
+  movimiento = setInterval(function() {
+
+    if (jugando) {
+      mover();
+    }
+
+  }, intervalo);
+
+  document.getElementById("nivel").textContent =
+    "Velocidad: x" + velocidad.toFixed(2);
+
+}
 
 
 // ATRAPAR PANDA
@@ -193,6 +223,29 @@ bicho.addEventListener("click", function() {
     document.getElementById("puntos").textContent = puntos;
 
     mover();
+
+    // CADA 15 PUNTOS SUBE DE NIVEL
+
+    if (puntos >= siguienteNivel) {
+
+      // AÑADIR 5 SEGUNDOS
+
+      tiempo += 5;
+
+      document.getElementById("tiempo").textContent = tiempo;
+
+      // AUMENTAR VELOCIDAD X1.5
+
+      velocidad *= 1.5;
+
+      siguienteNivel += 15;
+
+      actualizarVelocidad();
+
+      document.getElementById("mensaje").textContent =
+        "🔥 ¡NUEVO NIVEL! +5 SEGUNDOS Y MÁS VELOCIDAD";
+
+    }
 
   }
 
@@ -209,9 +262,9 @@ function iniciarMusica() {
   musica.play().catch(function(error) {
 
     document.getElementById("mensaje").textContent =
-      "No se pudo cargar la música. Revisa que el MP3 esté en la misma carpeta.";
+      "No se pudo cargar la música. Revisa el archivo MP3.";
 
-    console.error("Error de audio:", error);
+    console.error(error);
 
   });
 
@@ -236,8 +289,15 @@ function empezar() {
 
   detenerMusica();
 
+  clearInterval(reloj);
+  clearInterval(movimiento);
+
   puntos = 0;
   tiempo = 20;
+  velocidad = 1;
+  siguienteNivel = 15;
+  tiempoMusicaIniciada = false;
+
   jugando = true;
 
   document.getElementById("puntos").textContent = puntos;
@@ -245,25 +305,32 @@ function empezar() {
 
   document.getElementById("mensaje").textContent = "¡Atrápalo!";
 
+  document.getElementById("nivel").textContent =
+    "Velocidad: x1.00";
+
   mover();
 
-  clearInterval(reloj);
+  actualizarVelocidad();
+
+  // RELOJ
 
   reloj = setInterval(function() {
+
+    if (!jugando) return;
 
     tiempo--;
 
     document.getElementById("tiempo").textContent = tiempo;
 
-    // SONIDO DEL PANDA CADA SEGUNDO
+    // SONIDO CADA SEGUNDO
 
     sonidoTiempo();
 
-    mover();
+    // INICIAR MÚSICA AL LLEGAR A 15 SEGUNDOS
 
-    // CANCIÓN AL LLEGAR A 15 SEGUNDOS
+    if (tiempo <= 15 && !tiempoMusicaIniciada) {
 
-    if (tiempo === 15) {
+      tiempoMusicaIniciada = true;
 
       iniciarMusica();
 
@@ -271,8 +338,6 @@ function empezar() {
         "🔥 ¡MISIÓN IMPOSIBLE! ¡ATRÁPALO!";
 
     }
-
-    // TERMINAR CUANDO LLEGUE A CERO
 
     if (tiempo <= 0) {
 
@@ -292,6 +357,7 @@ function terminar() {
   jugando = false;
 
   clearInterval(reloj);
+  clearInterval(movimiento);
 
   detenerMusica();
 
@@ -319,4 +385,3 @@ document.getElementById("empezar").addEventListener("click", empezar);
 
 </body>
 </html>
-
