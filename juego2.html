@@ -10,7 +10,7 @@
 body {
   margin: 0;
   padding: 20px;
-  background: #000000;
+  background: #000;
   color: white;
   font-family: sans-serif;
   text-align: center;
@@ -39,7 +39,7 @@ h1 {
   font-size: 50px;
   background: none;
   border: none;
-  transition: left 0.3s, top 0.3s;
+  transition: left .3s, top .3s;
   touch-action: manipulation;
 }
 
@@ -71,25 +71,36 @@ Récord: <b id="record">0</b>
 </div>
 
 <button id="empezar">¡Jugar!</button>
-
 <p id="mensaje">Toca el 🐼 antes de que se escape</p>
 
-<script>
+<!-- Canción de YouTube -->
+<div id="reproductor" style="position:absolute;width:1px;height:1px;overflow:hidden;">
+  <iframe
+    id="youtube"
+    width="1"
+    height="1"
+    src="about:blank"
+    title="Música de fondo"
+    allow="autoplay; encrypted-media"
+    referrerpolicy="strict-origin-when-cross-origin">
+  </iframe>
+</div>
 
+<script>
 let puntos = 0;
 let tiempo = 20;
 let jugando = false;
 let reloj;
-
 let record = localStorage.getItem("record") || 0;
+let musicaIniciada = false;
 
 const bicho = document.getElementById("bicho");
 const zona = document.getElementById("zona");
+const youtube = document.getElementById("youtube");
 
 document.getElementById("record").textContent = record;
 
-// MÚSICA Y SONIDOS
-
+// Sonido original del panda
 let audio;
 
 function iniciarAudio() {
@@ -102,13 +113,11 @@ function iniciarAudio() {
   }
 }
 
-// Sonido intenso cada vez que baja el tiempo
 function sonidoTiempo() {
   iniciarAudio();
 
   const ahora = audio.currentTime;
 
-  // Golpe grave
   const osc = audio.createOscillator();
   const volumen = audio.createGain();
 
@@ -125,7 +134,6 @@ function sonidoTiempo() {
   osc.start(ahora);
   osc.stop(ahora + 0.3);
 
-  // Segundo sonido de suspenso
   const tono = audio.createOscillator();
   const volumen2 = audio.createGain();
 
@@ -143,32 +151,43 @@ function sonidoTiempo() {
   tono.stop(ahora + 0.2);
 }
 
-// Mover al panda
 function mover() {
-  let x = Math.random() * (zona.clientWidth - 70);
-  let y = Math.random() * (zona.clientHeight - 70);
+  const maxX = Math.max(0, zona.clientWidth - bicho.offsetWidth);
+  const maxY = Math.max(0, zona.clientHeight - bicho.offsetHeight);
 
-  bicho.style.left = x + "px";
-  bicho.style.top = y + "px";
+  bicho.style.left = Math.random() * maxX + "px";
+  bicho.style.top = Math.random() * maxY + "px";
 }
 
 mover();
 
-// Atrapar al panda
 bicho.addEventListener("click", function() {
   if (jugando) {
-    puntos = puntos + 1;
-
+    puntos++;
     document.getElementById("puntos").textContent = puntos;
-
     mover();
   }
 });
 
-// Empezar juego
-function empezar() {
+function iniciarMusica() {
+  if (musicaIniciada) return;
 
+  musicaIniciada = true;
+
+  // El video empieza a reproducirse cuando quedan 15 segundos.
+  youtube.src =
+    "https://www.youtube.com/embed/yXkV0h3eM20" +
+    "?autoplay=1&start=0&controls=0&loop=1&playlist=yXkV0h3eM20";
+}
+
+function detenerMusica() {
+  musicaIniciada = false;
+  youtube.src = "about:blank";
+}
+
+function empezar() {
   iniciarAudio();
+  detenerMusica();
 
   puntos = 0;
   tiempo = 20;
@@ -178,39 +197,37 @@ function empezar() {
   document.getElementById("tiempo").textContent = tiempo;
   document.getElementById("mensaje").textContent = "¡Atrápalo!";
 
+  mover();
   clearInterval(reloj);
 
   reloj = setInterval(function() {
-
-    tiempo = tiempo - 1;
+    tiempo--;
 
     document.getElementById("tiempo").textContent = tiempo;
 
-    // Música intensa en cada segundo
+    // Mantiene el sonido original cada segundo.
     sonidoTiempo();
-
     mover();
+
+    // Inicia la canción cuando quedan 15 segundos.
+    if (tiempo === 15) {
+      iniciarMusica();
+    }
 
     if (tiempo <= 0) {
       terminar();
     }
-
   }, 1000);
 }
 
-// Terminar juego
 function terminar() {
-
   jugando = false;
-
   clearInterval(reloj);
+  detenerMusica();
 
   if (puntos > record) {
-
     record = puntos;
-
     localStorage.setItem("record", record);
-
     document.getElementById("record").textContent = record;
   }
 
@@ -219,8 +236,8 @@ function terminar() {
 }
 
 document.getElementById("empezar").addEventListener("click", empezar);
-
 </script>
 
 </body>
 </html>
+
