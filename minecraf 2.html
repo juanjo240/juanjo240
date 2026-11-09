@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minecraft Clone</title>
+
+<style>
+body {
+    margin: 0;
+    overflow: hidden;
+    font-family: Arial;
+}
+
+#inventory {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 5px;
+}
+
+.slot {
+    width: 50px;
+    height: 50px;
+    background: #555;
+    border: 3px solid #222;
+    color: white;
+    text-align: center;
+    line-height: 50px;
+    font-size: 25px;
+}
+
+.selected {
+    border-color: white;
+}
+
+#crosshair {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    color: white;
+    font-size: 25px;
+    pointer-events: none;
+}
+</style>
+</head>
+
+<body>
+
+<div id="crosshair">+</div>
+
+<div id="inventory">
+    <div class="slot selected">🟩</div>
+    <div class="slot">🟫</div>
+    <div class="slot">⬜</div>
+    <div class="slot">🪵</div>
+    <div class="slot">🌿</div>
+    <div class="slot">🟨</div>
+</div>
+
+<script type="module">
+
+import * as THREE from
+'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js';
+
+// ==================================
+// 1. MOTOR GRÁFICO
+// ==================================
+
+const scene = new THREE.Scene();
+
+scene.background =
+new THREE.Color(0x87CEEB);
+
+const camera = new THREE.PerspectiveCamera(
+75,
+window.innerWidth / window.innerHeight,
+0.1,
+1000
+);
+
+const renderer = new THREE.WebGLRenderer({
+antialias: true
+});
+
+renderer.setSize(
+window.innerWidth,
+window.innerHeight
+);
+
+document.body.appendChild(renderer.domElement);
+
+// ==================================
+// 2. ILUMINACIÓN
+// ==================================
+
+const light = new THREE.DirectionalLight(
+0xffffff,
+2
+);
+
+light.position.set(10,20,10);
+scene.add(light);
+
+scene.add(
+new THREE.AmbientLight(0xffffff,0.7)
+);
+
+// ==================================
+// 3. TIPOS DE BLOQUES
+// ==================================
+
+const materials = {
+
+grass: new THREE.MeshLambertMaterial({
+color: 0x55aa33
+}),
+
+dirt: new THREE.MeshLambertMaterial({
+color: 0x79502b
+}),
+
+stone: new THREE.MeshLambertMaterial({
+color: 0x888888
+}),
+
+wood: new THREE.MeshLambertMaterial({
+color: 0x80502b
+}),
+
+leaves: new THREE.MeshLambertMaterial({
+color: 0x228822
+}),
+
+sand: new THREE.MeshLambertMaterial({
+color: 0xe5d18a
+})
+
+};
+
+const blockGeometry =
+new THREE.BoxGeometry(1,1,1);
+
+const blocks = new Map();
+
+function blockKey(x,y,z) {
+return `${x},${y},${z}`;
+}
+
+// ==================================
+// 4. CREAR BLOQUES
+// ==================================
+
+function createBlock(x,y,z,type) {
+
+const key = blockKey(x,y,z);
+
+if(blocks.has(key)) return;
+
+const block = new THREE.Mesh(
+blockGeometry,
+materials[type]
+);
+
+block.position.set(x,y,z);
+
+block.userData = {
+x,y,z,type
+};
+
+scene.add(block);
+
+blocks.set(key,block);
+
+return block;
+
+}
+
+// ==================================
+// 5. GENERAR TERRENO
+// ==================================
+
+function terrainHeight(x,z) {
+
+return Math.floor(
+Math.sin(x * 0.2) * 2 +
+Math.cos(z * 0.2) * 2
+);
+
+}
+
+function generateWorld() {
+
+for(let x=-20;x<20;x++) {
+
+for(let z=-20;z<20;z++) {
+
+const height =
+terrainHeight(x,z);
+
+for(let y=-4;y<=height;y++) {
+
+let type = "stone";
+
+if(y === height) {
+type = "grass";
+}
+else if(y > height-3) {
+type = "dirt";
+}
+
+createBlock(x,y,z,type);
+
+}
+
+}
+
+}
+
+}
+
+// ==================================
+// 6. GENERAR ÁRBOLES
+// ==================================
+
+function createTree(x,z) {
+
+const y = terrainHeight(x,z)+1;
+
+// Tronco
+
+for(let i=0;i<4;i++) {
+
+createBlock(x,y+i,z,"wood");
+
+}
+
+// Hojas
+
+for(let dx=-2;dx<=2;dx++) {
+
+for(let dz=-2;dz<=2;dz++) {
+
+for(let dy=2;dy<=4;dy++) {
+
+if(Math.abs(dx)+Math.abs(dz)<4) {
+
+createBlock(
+x+dx,
+y+dy,
+z+dz,
+"leaves"
+);
+
+}
+
+}
+
+}
+
+}
+
+}
+
+function generateTrees() {
+
+for(let i=0;i<30;i++) {
+
+const x =
+Math.floor(Math.random()*35)-17;
+
+const z =
+Math.floor(Math.random()*35)-17;
+
+createTree(x,z);
+
+}
+
+}
+
+// ==================================
+// 7. JUGADOR
+// ==================================
+
+const player = {
+
+position: new THREE.Vector3(0,5,5),
+
+speed: 0.12,
+
+yaw: 0,
+
+pitch: 0
+
+};
+
+camera.position.copy(player.position);
+
+const keys = {};
+
+document.addEventListener(
+"keydown",
+e => keys[e.code] = true
+);
+
+document.addEventListener(
+"keyup",
+e => keys[e.code] = false
+);
+
+// ==================================
+// 8. MOVIMIENTO
+// ==================================
+
+function movePlayer() {
+
+const direction = new THREE.Vector3();
+
+if(keys["KeyW"]) direction.z -= 1;
+if(keys["KeyS"]) direction.z += 1;
+if(keys["KeyA"]) direction.x -= 1;
+if(keys["KeyD"]) direction.x += 1;
+
+direction.normalize();
+
+direction.applyAxisAngle(
+new THREE.Vector3(0,1,0),
+player.yaw
+);
+
+player.position.addScaledVector(
+direction,
+player.speed
+);
+
+camera.position.copy(player.position);
+
+}
+
+// ==================================
+// 9. CÁMARA
+// ==================================
+
+let mouseLocked = false;
+
+renderer.domElement.addEventListener(
+"click",
+() => {
+renderer.domElement.requestPointerLock();
+}
+);
+
+document.addEventListener(
+"pointerlockchange",
+() => {
+mouseLocked =
+document.pointerLockElement === renderer.domElement;
+}
+);
+
+document.addEventListener(
+"mousemove",
+e => {
+
+if(!mouseLocked) return;
+
+player.yaw -= e.movementX * 0.002;
+player.pitch -= e.movementY * 0.002;
+
+player.pitch = Math.max(
+-1.5,
+Math.min(1.5,player.pitch)
+);
+
+camera.rotation.order = "YXZ";
+camera.rotation.y = player.yaw;
+camera.rotation.x = player.pitch;
+
+}
+);
+
+// ==================================
+// 10. ROMPER BLOQUES
+// ==================================
+
+const raycaster = new THREE.Raycaster();
+
+raycaster.far = 6;
+
+function getTargetBlock() {
+
+raycaster.setFromCamera(
+new THREE.Vector2(0,0),
+camera
+);
+
+const hits
